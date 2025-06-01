@@ -411,7 +411,7 @@ if user_input:
             response = st.session_state.chat.send_message(user_input)
             parsed_response = json.loads(response.text)
             
-            bot_reply = parsed_response["response"]
+            bot_reply = parsed_response
         except (json.JSONDecodeError, KeyError):
             bot_reply = response.text
 
