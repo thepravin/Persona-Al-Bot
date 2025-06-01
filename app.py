@@ -1,21 +1,7 @@
-import os
 import json
-import time  
+import time
 import streamlit as st
-from dotenv import load_dotenv
 import google.generativeai as genai
-
-# Load environment variables
-load_dotenv()
-api_key = os.getenv("GEMINI_API_KEY")
-
-# Validate API key
-if not api_key:
-    st.error("❌ API KEY is missing. Please check your .env file.")
-    st.stop()
-
-# Configure Gemini client
-genai.configure(api_key=api_key)
 
 # System prompt for Hitesh Choudhary-style assistant
 SYSTEM_PROMPT = """
@@ -361,33 +347,57 @@ SYSTEM_PROMPT = """
     Example-83:
     User: Sir how are you? or How do you do?
     Assistant: Main bilkul badhiya hoon! Aap batao, aaj coding kaise chal rahi hai chai ke saath bethe huain na? Life me positive raho, seekhte rahiye, aur chai ke saath maza aayega!
-
-    Always respond in this JSON format: { "response": "<your reply here>" }
 """
 
 
-# Initialize model
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash",
-    system_instruction=SYSTEM_PROMPT,
-    generation_config={"response_mime_type": "application/json"}
-)
+# Initialize session state variables
+if "api_key" not in st.session_state:
+    st.session_state.api_key = ""
 
-# Initialize session state
 if "chat" not in st.session_state:
-    st.session_state.chat = model.start_chat()
+    st.session_state.chat = None
+
+if "history" not in st.session_state:
     st.session_state.history = []
+
+# Popup form to get API key if not set yet
+if not st.session_state.api_key:
+    with st.form("api_key_form"):
+        st.warning("Please enter your Gemini API key to continue:")
+        input_key = st.text_input("Gemini API Key", type="password")
+        submitted = st.form_submit_button("Submit")
+
+        if submitted:
+            if input_key.strip():
+                st.session_state.api_key = input_key.strip()
+                st.rerun()  # Rerun app to load key
+            else:
+                st.error("API key cannot be empty.")
+    st.stop()  # Stop further execution until API key is provided
+
+# Configure Gemini client and initialize chat model
+try:
+    genai.configure(api_key=st.session_state.api_key)
+
+    if st.session_state.chat is None:
+        st.session_state.chat = genai.GenerativeModel(
+            model_name="gemini-2.0-flash",
+            system_instruction=SYSTEM_PROMPT,
+            generation_config={"response_mime_type": "application/json"}
+        ).start_chat()
+
+except Exception as e:
+    st.error(f"❌ Failed to configure Gemini API: {e}")
+    st.stop()
 
 # UI
 st.subheader("🧠 Chat with Hitesh Choudhary Style AI")
 st.markdown("_Ask any coding question in Hindi or English_")
 
-# Chat display
-for i, (user_msg, bot_msg) in enumerate(st.session_state.history):
+# Display chat history
+for user_msg, bot_msg in st.session_state.history:
     st.chat_message("user", avatar="👤").write(user_msg)
     st.chat_message("assistant", avatar="🤖").write(bot_msg)
-
-
 
 # User input
 user_input = st.chat_input("Type your question here...")
@@ -400,11 +410,12 @@ if user_input:
         try:
             response = st.session_state.chat.send_message(user_input)
             parsed_response = json.loads(response.text)
+            
             bot_reply = parsed_response["response"]
         except (json.JSONDecodeError, KeyError):
             bot_reply = response.text
 
-    # Typing effect starts here
+    # Typing effect
     placeholder = st.chat_message("assistant", avatar="🤖").empty()
     displayed_text = ""
     for char in bot_reply:
@@ -413,6 +424,5 @@ if user_input:
         time.sleep(0.015)
     placeholder.markdown(displayed_text)  # Final output without cursor
 
-    # Save to chat history
+    # Save conversation to history
     st.session_state.history.append((user_input, bot_reply))
-
