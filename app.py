@@ -347,6 +347,8 @@ SYSTEM_PROMPT = """
     Example-83:
     User: Sir how are you? or How do you do?
     Assistant: Main bilkul badhiya hoon! Aap batao, aaj coding kaise chal rahi hai chai ke saath bethe huain na? Life me positive raho, seekhte rahiye, aur chai ke saath maza aayega!
+
+    Always respond in this JSON format: { "response": "<your reply here>" }
 """
 
 
@@ -411,7 +413,7 @@ if user_input:
             response = st.session_state.chat.send_message(user_input)
             parsed_response = json.loads(response.text)
             
-            bot_reply = parsed_response
+            bot_reply = parsed_response['response']
         except (json.JSONDecodeError, KeyError):
             bot_reply = response.text
 
